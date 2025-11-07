@@ -9,11 +9,6 @@ from typing import Optional, List, Dict, Any
 import logging
 from openai import OpenAI, AzureOpenAI
 from config import settings
-from dotenv import load_dotenv
-import os
-
-# Load environment variables from .env file
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -68,11 +63,34 @@ def get_openai_client():
     try:
         if settings.AI_PROVIDER.lower() == "digitalocean":
             # DigitalOcean Inference API
-            client = OpenAI(
-                api_key=settings.DIGITALOCEAN_API_KEY,
-                base_url=settings.DIGITALOCEAN_INFERENCE_ENDPOINT
-            )
-            logger.info(f"Using DigitalOcean Inference API: {settings.DIGITALOCEAN_INFERENCE_ENDPOINT}")
+                # DigitalOcean Inference API - use requests directly
+                import requests
+                class DigitalOceanClient:
+                    def __init__(self, endpoint, api_key):
+                        self.endpoint = endpoint.rstrip("/")
+                        self.api_key = api_key.replace("Bearer ", "")
+                        self.chat = self.Chat(self)
+                    class Chat:
+                        def __init__(self, parent):
+                            self.parent = parent
+                            self.completions = self
+                        def create(self, **kwargs):
+                            # Ensure endpoint ends with /chat/completions
+                            if self.parent.endpoint.endswith("/chat/completions"):
+                                url = self.parent.endpoint
+                            else:
+                                url = f"{self.parent.endpoint}/chat/completions"
+                            headers = {
+                                "Content-Type": "application/json",
+                                "Authorization": f"Bearer {self.parent.api_key}"
+                            }
+                            response = requests.post(url, headers=headers, json=kwargs)
+                            if response.status_code != 200:
+                                logger.error(f"DigitalOcean API error: {response.text}")
+                                raise Exception(f"DigitalOcean API error: {response.text}")
+                            return response.json()
+                client = DigitalOceanClient(settings.DIGITALOCEAN_INFERENCE_ENDPOINT, settings.DIGITALOCEAN_API_KEY)
+                logger.info(f"Using DigitalOcean Inference API: {settings.DIGITALOCEAN_INFERENCE_ENDPOINT}")
         elif settings.AI_PROVIDER.lower() == "azure":
             # Check if using Azure OpenAI or standard OpenAI API format
             if "azure" in settings.AZURE_OPENAI_ENDPOINT.lower():
@@ -181,7 +199,6 @@ class HealthResponse(BaseModel):
 @app.get("/", response_model=Dict[str, str])
 async def root():
     """Root endpoint - API information"""
-    logger.info("Root endpoint was called.")
     return {
         "service": "AI API Gateway",
         "version": "2.0.0",
@@ -198,7 +215,6 @@ async def root():
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint"""
-    logger.info("Health check endpoint was called.")
     if settings.AI_PROVIDER.lower() == "digitalocean":
         config = {
             "ai_provider": settings.AI_PROVIDER,
@@ -234,7 +250,6 @@ async def chat_completion(request: ChatRequest):
         ChatResponse with AI generated response
     """
     try:
-        logger.info("Received request for /api/chat with data: %s", request.dict())
         client = get_openai_client()
         
         # Prepare messages
@@ -259,25 +274,27 @@ async def chat_completion(request: ChatRequest):
             max_tokens=request.max_tokens,
             top_p=request.top_p
         )
-        
-        # Extract response
-        ai_response = response.choices[0].message.content
-        logger.info("AI response: %s", ai_response)
-        
-        return ChatResponse(
-            response=ai_response,
-            model=response.model,
-            usage={
+        # Handle both DigitalOcean (dict) and OpenAI (object) responses
+        if isinstance(response, dict):
+            ai_response = response['choices'][0]['message']['content']
+            model = response.get('model', model_name)
+            usage = response.get('usage', {})
+        else:
+            ai_response = response.choices[0].message.content
+            model = response.model
+            usage = {
                 "prompt_tokens": response.usage.prompt_tokens,
                 "completion_tokens": response.usage.completion_tokens,
                 "total_tokens": response.usage.total_tokens
             }
+        return ChatResponse(
+            response=ai_response,
+            model=model,
+            usage=usage
         )
         
     except Exception as e:
-        logger.error("Error in chat completion: %s", str(e))
-        if hasattr(e, 'response') and e.response:
-            logger.error("Response content: %s", e.response.content)
+        logger.error(f"Error in chat completion: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate response: {str(e)}"
@@ -318,20 +335,24 @@ async def simple_completion(request: CompletionRequest):
             temperature=request.temperature,
             max_tokens=request.max_tokens
         )
-        
-        # Extract response
-        ai_response = response.choices[0].message.content
-        
-        return ChatResponse(
-            response=ai_response,
-            model=response.model,
-            usage={
+        # Handle both DigitalOcean (dict) and OpenAI (object) responses
+        if isinstance(response, dict):
+            ai_response = response['choices'][0]['message']['content']
+            model = response.get('model', model_name)
+            usage = response.get('usage', {})
+        else:
+            ai_response = response.choices[0].message.content
+            model = response.model
+            usage = {
                 "prompt_tokens": response.usage.prompt_tokens,
                 "completion_tokens": response.usage.completion_tokens,
                 "total_tokens": response.usage.total_tokens
             }
+        return ChatResponse(
+            response=ai_response,
+            model=model,
+            usage=usage
         )
-        
     except Exception as e:
         logger.error(f"Error in completion: {str(e)}")
         raise HTTPException(
@@ -340,22 +361,12 @@ async def simple_completion(request: CompletionRequest):
         )
 
 
-# Define the /chat endpoint
-@app.post("/chat", summary="Chat with AI", description="Handle multi-turn conversations with the AI provider.")
-def chat_endpoint(request: ChatRequest):
-    logger.info("/chat endpoint called with messages: %s", request.messages)
-    # Placeholder response for now
-    return {"response": "This is a placeholder response."}
-
-
-# Add detailed logs for startup and shutdown events
 @app.on_event("startup")
 async def startup_event():
     logger.info("Application is starting up...")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("Application is shutting down...")
+    # Debug: Print DigitalOcean API key and endpoint
+    logger.info(f"DigitalOcean API Key: {settings.DIGITALOCEAN_API_KEY}")
+    logger.info(f"DigitalOcean Endpoint: {settings.DIGITALOCEAN_INFERENCE_ENDPOINT}")
 
 
 if __name__ == "__main__":
