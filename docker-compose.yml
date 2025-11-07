@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: azure-openai-api
     ports:
-      - "${API_PORT:-8001}:8000"
+      - "${API_PORT:-8000}:8000"
     environment:
       # AI Provider Selection
       - AI_PROVIDER=${AI_PROVIDER:-azure}
@@ -44,9 +44,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
-    networks:
-      - azure-openai-network
-
-networks:
-  azure-openai-network:
-    driver: bridge
