@@ -9,11 +9,19 @@ from pydantic import field_validator
 class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
     
+    # AI Provider Selection
+    AI_PROVIDER: str = "azure"  # Options: "azure", "digitalocean"
+    
     # Azure OpenAI Configuration
-    AZURE_OPENAI_ENDPOINT: str
+    AZURE_OPENAI_ENDPOINT: str ="https://agent-ai-servicess2v7.openai.azure.com/"
     AZURE_OPENAI_API_KEY: str
     AZURE_OPENAI_MODEL: str = "gpt-4"
     AZURE_OPENAI_API_VERSION: str = "2024-02-15-preview"
+    
+    # DigitalOcean AI Configuration (optional, used when AI_PROVIDER="digitalocean")
+    DIGITALOCEAN_INFERENCE_ENDPOINT: str = "https://inference.do-ai.run/v1"
+    DIGITALOCEAN_API_KEY: str = ""
+    DIGITALOCEAN_MODEL: str = "openai-gpt-4o"
     
     # Default System Prompt
     DEFAULT_SYSTEM_PROMPT: str = "You are a helpful AI assistant."

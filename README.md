@@ -1,103 +1,84 @@
-# Azure OpenAI FastAPI Service
+# AI API Gateway
 
-A modular, production-ready FastAPI application for interacting with Azure OpenAI services. This API provides easy-to-use endpoints for chat completions and text generation, with full Docker support and configurable settings.
+A modular, production-ready FastAPI application for interacting with multiple AI providers. Switch between Azure OpenAI and DigitalOcean AI with a single configuration change!
 
-## Features
+## 🌟 Features
 
-- 🚀 **FastAPI Framework** - High-performance, modern Python API
-- 🤖 **Azure OpenAI Integration** - Seamless connection to Azure OpenAI services
-- 🔧 **Highly Configurable** - Easy configuration via environment variables
-- 🐳 **Docker Support** - Containerized deployment with Docker and Docker Compose
-- 📝 **Custom System Prompts** - Configurable system prompts at both deployment and request level
-- 🔒 **Secure** - Non-root Docker user, environment-based secrets
-- 📊 **Interactive API Docs** - Auto-generated Swagger UI documentation
-- ✅ **Health Checks** - Built-in health monitoring endpoints
+- � **Multi-Provider Support** - Azure OpenAI & DigitalOcean AI (easily extensible)
+- �🚀 **FastAPI Framework** - High-performance, modern Python API
+- 🎯 **Easy Provider Switching** - Change providers via environment variable
+- 🔧 **Highly Configurable** - All settings via environment variables
+- 🐳 **Docker Support** - Containerized deployment ready
+- 📝 **Custom System Prompts** - Per-request or default system prompts
+- 🔒 **Secure** - Environment-based secrets, non-root Docker user
+- 📊 **Interactive Docs** - Auto-generated Swagger UI & ReDoc
+- ✅ **Health Monitoring** - Built-in health check endpoints
+- 🎮 **Playground Ready** - Perfect for demos and testing
 
-## Prerequisites
+## 🎯 Supported Providers
 
-- Python 3.11+ (for local development)
-- Docker and Docker Compose (for containerized deployment)
-- Azure OpenAI Service account with API key and endpoint
+### Azure OpenAI
+- Enterprise-grade AI services
+- GPT-4, GPT-3.5, and other Azure-hosted models
+- Enterprise security and compliance
 
-## Quick Start with Docker (Recommended)
+### DigitalOcean AI
+- Cost-effective AI inference
+- Multiple models: GPT, Claude, Llama, Mistral
+- Simple pricing and setup
 
-### 1. Clone and Navigate to Project
+## 🚀 Quick Start
+
+### 1. Clone and Setup
 
 ```bash
 cd AIAPI
-```
-
-### 2. Configure Environment Variables
-
-Copy the example environment file and update with your Azure OpenAI credentials:
-
-```bash
 cp .env.example .env
 ```
 
-Edit `.env` file with your values:
+### 2. Choose Your Provider
 
+Edit `.env` and set your provider:
+
+**For DigitalOcean AI:**
 ```env
-AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com/
-AZURE_OPENAI_API_KEY=your-api-key-here
+AI_PROVIDER=digitalocean
+DIGITALOCEAN_API_KEY=your-do-api-key
+DIGITALOCEAN_MODEL=llama3.3-70b-instruct
+```
+
+**For Azure OpenAI:**
+```env
+AI_PROVIDER=azure
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_API_KEY=your-azure-key
 AZURE_OPENAI_MODEL=your-deployment-name
 ```
 
-**Important:** `AZURE_OPENAI_MODEL` should be your **deployment name** (found in Azure OpenAI Studio > Deployments), not the model name.
+### 3. Run the Service
 
-### 3. Build and Run with Docker Compose
+**Local Development:**
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
+# Start the server
+python start.py
+```
+
+**Docker:**
 ```bash
 docker compose up -d
 ```
 
-The API will be available at `http://localhost:8001`
+### 4. Access the API
 
-### 4. Access API Documentation
+- 🌐 **API Base**: http://localhost:8001
+- 📚 **Interactive Docs**: http://localhost:8001/docs
+- 🎮 **Playground**: http://localhost:8001/docs#/
+- 💚 **Health Check**: http://localhost:8001/health
 
-Open your browser and navigate to:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-
-## Local Development Setup
-
-### 1. Create Virtual Environment
-
-```bash
-python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# Linux/Mac
-source venv/bin/activate
-```
-
-### 2. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Configure Environment
-
-Create a `.env` file from the example:
-
-```bash
-cp .env.example .env
-```
-
-Update the `.env` file with your Azure OpenAI credentials.
-
-### 4. Run the Application
-
-```bash
-python start.py
-```
-
-Or directly with uvicorn:
-
-```bash
+## 📖 Usage Examples
 uvicorn main:app --host 0.0.0.0 --port 8001
 ```
 
@@ -117,38 +98,16 @@ curl http://localhost:8000/health
 
 ### Chat Completion
 
-**POST** `/api/chat`
+### 💬 Chat Completion (Multi-turn conversation)
 
-Send a multi-turn conversation to the AI.
-
-**Request Body:**
-```json
-{
-  "messages": [
-    {
-      "role": "user",
-      "content": "What is the capital of France?"
-    }
-  ],
-  "system_prompt": "You are a geography expert.",
-  "temperature": 0.7,
-  "max_tokens": 800,
-  "top_p": 0.95
-}
-```
-
-**Example with cURL:**
 ```bash
-curl -X POST http://localhost:8000/api/chat \
+curl -X POST http://localhost:8001/api/chat \
   -H "Content-Type: application/json" \
   -d '{
     "messages": [
-      {
-        "role": "user",
-        "content": "Explain quantum computing in simple terms"
-      }
+      {"role": "user", "content": "What is machine learning?"}
     ],
-    "system_prompt": "You are a helpful science teacher.",
+    "system_prompt": "You are a helpful AI teacher.",
     "temperature": 0.7
   }'
 ```
@@ -156,164 +115,304 @@ curl -X POST http://localhost:8000/api/chat \
 **Response:**
 ```json
 {
-  "response": "The capital of France is Paris.",
-  "model": "gpt-4",
+  "response": "Machine learning is a subset of artificial intelligence...",
+  "model": "llama3.3-70b-instruct",
   "usage": {
-    "prompt_tokens": 15,
-    "completion_tokens": 8,
-    "total_tokens": 23
+    "prompt_tokens": 25,
+    "completion_tokens": 150,
+    "total_tokens": 175
   }
 }
 ```
 
-### Simple Completion
+### 🎯 Simple Completion
 
-**POST** `/api/completion`
-
-Send a single prompt to the AI.
-
-**Request Body:**
-```json
-{
-  "prompt": "Write a short poem about the ocean",
-  "system_prompt": "You are a creative poet.",
-  "temperature": 0.9,
-  "max_tokens": 500
-}
-```
-
-**Example with cURL:**
 ```bash
-curl -X POST http://localhost:8000/api/completion \
+curl -X POST http://localhost:8001/api/completion \
   -H "Content-Type: application/json" \
   -d '{
-    "prompt": "List 5 benefits of exercise",
-    "temperature": 0.5
+    "prompt": "Write a haiku about coding",
+    "temperature": 0.9
   }'
 ```
 
-## Configuration Options
-
-All configuration is managed through environment variables. You can set these in:
-- `.env` file (for local development)
-- Docker Compose environment section
-- Container environment variables
-
-### Available Configuration Variables
-
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `AZURE_OPENAI_ENDPOINT` | Your Azure OpenAI endpoint URL | - | ✅ Yes |
-| `AZURE_OPENAI_API_KEY` | Your Azure OpenAI API key | - | ✅ Yes |
-| `AZURE_OPENAI_MODEL` | **Deployment name** (not model name) from Azure | - | ✅ Yes |
-| `AZURE_OPENAI_API_VERSION` | API version to use | `2024-02-15-preview` | No |
-| `DEFAULT_SYSTEM_PROMPT` | Default system prompt for all requests | `You are a helpful AI assistant.` | No |
-| `API_HOST` | Host to bind the server | `0.0.0.0` | No |
-| `API_PORT` | Port for the API server | `8001` | No |
-| `CORS_ORIGINS` | Allowed CORS origins | `*` | No |
-| `LOG_LEVEL` | Logging level | `INFO` | No |
-
-### Changing System Prompts
-
-You can customize the AI's behavior in three ways:
-
-1. **Global Default** - Set in `.env` file:
-   ```env
-   DEFAULT_SYSTEM_PROMPT=You are a helpful customer service agent.
-   ```
-
-2. **Per Request** - Override in API request:
-   ```json
-   {
-     "system_prompt": "You are a Python programming expert.",
-     "messages": [...]
-   }
-   ```
-
-3. **Docker Environment** - Set in `docker-compose.yml`:
-   ```yaml
-   environment:
-     - DEFAULT_SYSTEM_PROMPT=You are a technical support specialist.
-   ```
-
-## Docker Commands
-
-### Build Image
+### 💚 Health Check
 
 ```bash
-docker build -t azure-openai-api .
+curl http://localhost:8001/health
 ```
 
-### Run Container
+**Response:**
+```json
+{
+  "status": "healthy",
+  "message": "Service is running",
+  "configuration": {
+    "ai_provider": "digitalocean",
+    "endpoint_configured": true,
+    "api_key_configured": true,
+    "model": "llama3.3-70b-instruct"
+  }
+}
+```
 
+### 🎮 Playground Usage
+
+1. Open http://localhost:8001/docs
+2. Click on any endpoint (e.g., `/api/chat`)
+3. Click "Try it out"
+4. Modify the request body
+5. Click "Execute"
+6. See the response instantly!
+
+## ⚙️ Configuration
+
+### Provider-Specific Settings
+
+#### DigitalOcean AI Configuration
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `AI_PROVIDER` | Set to `digitalocean` | `digitalocean` |
+| `DIGITALOCEAN_API_KEY` | Your DO API key | `sk-do-xxx...` |
+| `DIGITALOCEAN_MODEL` | Model to use | `llama3.3-70b-instruct` |
+| `DIGITALOCEAN_INFERENCE_ENDPOINT` | Endpoint URL | `https://inference.do-ai.run/v1` |
+
+**Available Models:**
+- `llama3.3-70b-instruct` - Meta's Llama 3.3 (70B parameters)
+- `llama3-8b-instruct` - Meta's Llama 3 (8B parameters)
+- `mistral-nemo-instruct-2407` - Mistral's Nemo model
+- `openai-gpt-4o` - GPT-4 Optimized (requires higher tier)
+- `anthropic-claude-3.5-haiku` - Claude 3.5 Haiku (requires higher tier)
+
+#### Azure OpenAI Configuration
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `AI_PROVIDER` | Set to `azure` | `azure` |
+| `AZURE_OPENAI_ENDPOINT` | Azure endpoint | `https://your-resource.openai.azure.com/` |
+| `AZURE_OPENAI_API_KEY` | Azure API key | `xxxxx...` |
+| `AZURE_OPENAI_MODEL` | **Deployment name** | `gpt-4` |
+| `AZURE_OPENAI_API_VERSION` | API version | `2024-02-15-preview` |
+
+### General Settings
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DEFAULT_SYSTEM_PROMPT` | Default AI behavior | `You are a helpful AI assistant.` |
+| `API_HOST` | Server host | `0.0.0.0` |
+| `API_PORT` | Server port | `8001` |
+| `CORS_ORIGINS` | Allowed origins | `*` |
+| `LOG_LEVEL` | Logging level | `INFO` |
+
+## 🔄 Switching Providers
+
+### From DigitalOcean to Azure:
+
+1. Edit `.env`:
+```env
+AI_PROVIDER=azure
+```
+
+2. Restart the server:
 ```bash
-docker run -d \
-  --name azure-openai-api \
-  -p 8000:8000 \
-  --env-file .env \
-  azure-openai-api
+python start.py
+```
+
+### From Azure to DigitalOcean:
+
+1. Edit `.env`:
+```env
+AI_PROVIDER=digitalocean
+```
+
+2. Restart the server:
+
+
+You can customize AI behavior in three ways:
+
+**1. Global Default (in `.env`):**
+```env
+DEFAULT_SYSTEM_PROMPT=You are a helpful customer service agent.
+```
+
+**2. Per Request (in API call):**
+```json
+{
+  "system_prompt": "You are a Python expert.",
+  "messages": [{"role": "user", "content": "Explain decorators"}]
+}
+```
+
+**3. Docker Environment:**
+```yaml
+environment:
+  - DEFAULT_SYSTEM_PROMPT=You are a technical support specialist.
+```
+
+## 🐳 Docker Deployment
+
+### Build and Run
+```bash
+docker compose up -d
 ```
 
 ### View Logs
-
 ```bash
-# Docker Compose
-docker-compose logs -f
-
-# Docker
-docker logs -f azure-openai-api
+docker compose logs -f
 ```
 
 ### Stop Service
-
 ```bash
-# Docker Compose
-docker-compose down
-
-# Docker
-docker stop azure-openai-api
+docker compose down
 ```
 
-### Restart Service
-
+### Manual Docker Build
 ```bash
-# Docker Compose
-docker-compose restart
-
-# Docker
-docker restart azure-openai-api
+docker build -t ai-api-gateway .
+docker run -d -p 8001:8001 --env-file .env ai-api-gateway
 ```
 
-## Example Usage with Python
+## 🏗️ Project Structure
 
+```
+AIAPI/
+├── main.py              # FastAPI application & endpoints
+├── config.py            # Configuration management
+├── start.py             # Startup script
+├── requirements.txt     # Python dependencies
+├── Dockerfile          # Docker image definition
+├── docker-compose.yml  # Docker Compose configuration
+├── .env               # Environment variables (gitignored)
+├── .env.example       # Environment template
+└── README.md          # This file
+```
+
+## 📝 API Reference
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | API information |
+| GET | `/health` | Health check |
+| POST | `/api/chat` | Multi-turn chat |
+| POST | `/api/completion` | Simple completion |
+
+### Request Parameters
+
+**Chat & Completion:**
+- `temperature` (0-2): Randomness level (default: 0.7)
+- `max_tokens` (1-4000): Response length limit (default: 800)
+- `top_p` (0-1): Nucleus sampling (default: 0.95)
+- `system_prompt`: Custom system instruction
+
+## 🎯 Use Cases
+
+- **Chatbots** - Customer service, support agents
+- **Content Generation** - Blog posts, product descriptions
+- **Code Assistance** - Code review, documentation
+- **Education** - Tutoring, Q&A systems
+- **Research** - Summarization, analysis
+- **Prototyping** - Quick AI integration testing
+
+## 🔒 Security Best Practices
+
+1. **Never commit `.env` file** - Keep credentials secure
+2. **Use environment variables** - No hardcoded secrets
+3. **Restrict CORS** - Set specific origins in production
+4. **Rate limiting** - Add rate limiting for production
+5. **API authentication** - Add auth layer for public APIs
+6. **Monitor usage** - Track token consumption
+
+
+
+### Common Issues
+
+**"Model not available for your subscription tier"**
+- Solution: Use a different model from your tier (e.g., `llama3.3-70b-instruct` instead of `openai-gpt-4o`)
+
+**"Invalid access token"**
+- Check your API key in `.env`
+- Verify you're using the correct key for your provider
+- For DigitalOcean: ensure you have the API key (not secret key)
+
+**"Port already in use"**
+```bash
+# Change port in .env
+API_PORT=8002
+```
+
+**"Connection refused"**
+- Verify endpoint URL in `.env`
+- Check internet connectivity
+- Ensure API credentials are valid
+
+**"CORS errors"**
+```env
+# Update CORS_ORIGINS in .env
+CORS_ORIGINS=http://localhost:3000,https://myapp.com
+```
+
+## 💻 Example Usage
+
+### Python
 ```python
 import requests
 
-url = "http://localhost:8000/api/chat"
-
-payload = {
-    "messages": [
-        {
-            "role": "user",
-            "content": "What are the benefits of cloud computing?"
-        }
-    ],
-    "system_prompt": "You are a cloud architecture expert.",
-    "temperature": 0.7,
-    "max_tokens": 500
-}
-
-response = requests.post(url, json=payload)
-result = response.json()
-
-print(f"Response: {result['response']}")
-print(f"Tokens used: {result['usage']['total_tokens']}")
+response = requests.post(
+    "http://localhost:8001/api/chat",
+    json={
+        "messages": [{"role": "user", "content": "Hello!"}],
+        "temperature": 0.7
+    }
+)
+print(response.json()["response"])
 ```
 
-## Example Usage with JavaScript/Node.js
-
+### JavaScript/Node.js
 ```javascript
-const axios = require('axios');
+const response = await fetch('http://localhost:8001/api/chat', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    messages: [{role: 'user', content: 'Hello!'}],
+    temperature: 0.7
+  })
+});
+const data = await response.json();
+console.log(data.response);
+```
+
+### cURL
+```bash
+curl -X POST http://localhost:8001/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"Hello!"}]}'
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📄 License
+
+This project is open source and available under the MIT License.
+
+## 🙏 Acknowledgments
+
+- FastAPI framework
+- OpenAI Python SDK
+- Azure OpenAI Service
+- DigitalOcean AI Platform
+
+---
+
+**Made with ❤️ for developers who love AI**
 
 const url = 'http://localhost:8000/api/completion';
 

@@ -1,12 +1,13 @@
 """
-FastAPI application for Azure OpenAI integration
+FastAPI application for AI integration
+Supports multiple AI providers: Azure OpenAI, DigitalOcean AI, and OpenAI-compatible APIs
 """
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 import logging
-from openai import AzureOpenAI
+from openai import OpenAI, AzureOpenAI
 from config import settings
 
 # Configure logging
@@ -15,9 +16,36 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="AI API",
-    description="Modular FastAPI application for calling AI services",
-    version="1.0.0"
+    title="AI API Gateway",
+    description="""
+    ## Modular AI API Gateway
+    
+    This API provides a unified interface to multiple AI providers:
+    - **Azure OpenAI** - Microsoft's enterprise AI service
+    - **DigitalOcean AI** - DigitalOcean's inference API
+    
+    ### Quick Start
+    1. Configure your provider in `.env` file
+    2. Set `AI_PROVIDER` to either `azure` or `digitalocean`
+    3. Add your credentials for the chosen provider
+    4. Start the server with `python start.py`
+    
+    ### Features
+    - 🔄 Easy provider switching via environment variables
+    - 💬 Chat completions with conversation history
+    - 🎯 Simple text completions
+    - 🎛️ Customizable system prompts
+    - 📊 Token usage tracking
+    - 🏥 Health monitoring
+    
+    ### Endpoints
+    - **POST /api/chat** - Multi-turn conversations
+    - **POST /api/completion** - Single prompt completions
+    - **GET /health** - Service health and configuration
+    """,
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
 # Add CORS middleware
@@ -29,22 +57,52 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize Azure OpenAI client
+# Initialize OpenAI client
 def get_openai_client():
-    """Initialize and return Azure OpenAI client"""
+    """Initialize and return OpenAI client based on AI_PROVIDER setting"""
     try:
-        client = AzureOpenAI(
-            api_key=settings.AZURE_OPENAI_API_KEY,
-            api_version=settings.AZURE_OPENAI_API_VERSION,
-            azure_endpoint=settings.AZURE_OPENAI_ENDPOINT
-        )
+        if settings.AI_PROVIDER.lower() == "digitalocean":
+            # DigitalOcean Inference API
+            client = OpenAI(
+                api_key=settings.DIGITALOCEAN_API_KEY,
+                base_url=settings.DIGITALOCEAN_INFERENCE_ENDPOINT
+            )
+            logger.info(f"Using DigitalOcean Inference API: {settings.DIGITALOCEAN_INFERENCE_ENDPOINT}")
+        elif settings.AI_PROVIDER.lower() == "azure":
+            # Check if using Azure OpenAI or standard OpenAI API format
+            if "azure" in settings.AZURE_OPENAI_ENDPOINT.lower():
+                # Azure OpenAI format
+                client = AzureOpenAI(
+                    api_key=settings.AZURE_OPENAI_API_KEY,
+                    api_version=settings.AZURE_OPENAI_API_VERSION,
+                    azure_endpoint=settings.AZURE_OPENAI_ENDPOINT
+                )
+                logger.info(f"Using Azure OpenAI: {settings.AZURE_OPENAI_ENDPOINT}")
+            else:
+                # Standard OpenAI API format
+                client = OpenAI(
+                    api_key=settings.AZURE_OPENAI_API_KEY,
+                    base_url=settings.AZURE_OPENAI_ENDPOINT
+                )
+                logger.info(f"Using OpenAI-compatible API: {settings.AZURE_OPENAI_ENDPOINT}")
+        else:
+            raise ValueError(f"Invalid AI_PROVIDER: {settings.AI_PROVIDER}. Must be 'azure' or 'digitalocean'")
+        
         return client
     except Exception as e:
-        logger.error(f"Failed to initialize Azure OpenAI client: {str(e)}")
+        logger.error(f"Failed to initialize OpenAI client: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to initialize AI service"
         )
+
+
+def get_model_name():
+    """Get the model name based on the AI provider"""
+    if settings.AI_PROVIDER.lower() == "digitalocean":
+        return settings.DIGITALOCEAN_MODEL
+    else:
+        return settings.AZURE_OPENAI_MODEL
 
 
 # Request/Response models
@@ -117,26 +175,43 @@ class HealthResponse(BaseModel):
 # API Endpoints
 @app.get("/", response_model=Dict[str, str])
 async def root():
-    """Root endpoint"""
+    """Root endpoint - API information"""
     return {
-        "message": "Azure OpenAI API is running",
+        "service": "AI API Gateway",
+        "version": "2.0.0",
+        "provider": settings.AI_PROVIDER,
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
+        "endpoints": {
+            "chat": "/api/chat",
+            "completion": "/api/completion"
+        }
     }
 
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint"""
-    return HealthResponse(
-        status="healthy",
-        message="Service is running",
-        configuration={
+    if settings.AI_PROVIDER.lower() == "digitalocean":
+        config = {
+            "ai_provider": settings.AI_PROVIDER,
+            "endpoint_configured": bool(settings.DIGITALOCEAN_INFERENCE_ENDPOINT),
+            "api_key_configured": bool(settings.DIGITALOCEAN_API_KEY),
+            "model": settings.DIGITALOCEAN_MODEL
+        }
+    else:
+        config = {
+            "ai_provider": settings.AI_PROVIDER,
             "endpoint_configured": bool(settings.AZURE_OPENAI_ENDPOINT),
             "api_key_configured": bool(settings.AZURE_OPENAI_API_KEY),
             "model": settings.AZURE_OPENAI_MODEL,
             "api_version": settings.AZURE_OPENAI_API_VERSION
         }
+    
+    return HealthResponse(
+        status="healthy",
+        message="Service is running",
+        configuration=config
     )
 
 
@@ -166,10 +241,11 @@ async def chat_completion(request: ChatRequest):
         for msg in request.messages:
             messages.append({"role": msg.role, "content": msg.content})
         
-        # Call Azure OpenAI
-        logger.info(f"Calling Azure OpenAI with {len(messages)} messages")
+        # Call AI service
+        model_name = get_model_name()
+        logger.info(f"Calling {settings.AI_PROVIDER} AI with {len(messages)} messages using model {model_name}")
         response = client.chat.completions.create(
-            model=settings.AZURE_OPENAI_MODEL,
+            model=model_name,
             messages=messages,
             temperature=request.temperature,
             max_tokens=request.max_tokens,
@@ -222,10 +298,11 @@ async def simple_completion(request: CompletionRequest):
         # Add user prompt
         messages.append({"role": "user", "content": request.prompt})
         
-        # Call Azure OpenAI
-        logger.info(f"Calling Azure OpenAI for completion")
+        # Call AI service
+        model_name = get_model_name()
+        logger.info(f"Calling {settings.AI_PROVIDER} AI for completion using model {model_name}")
         response = client.chat.completions.create(
-            model=settings.AZURE_OPENAI_MODEL,
+            model=model_name,
             messages=messages,
             temperature=request.temperature,
             max_tokens=request.max_tokens
