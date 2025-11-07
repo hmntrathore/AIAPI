@@ -9,6 +9,11 @@ from typing import Optional, List, Dict, Any
 import logging
 from openai import OpenAI, AzureOpenAI
 from config import settings
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -176,6 +181,7 @@ class HealthResponse(BaseModel):
 @app.get("/", response_model=Dict[str, str])
 async def root():
     """Root endpoint - API information"""
+    logger.info("Root endpoint was called.")
     return {
         "service": "AI API Gateway",
         "version": "2.0.0",
@@ -192,6 +198,7 @@ async def root():
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint"""
+    logger.info("Health check endpoint was called.")
     if settings.AI_PROVIDER.lower() == "digitalocean":
         config = {
             "ai_provider": settings.AI_PROVIDER,
@@ -227,6 +234,7 @@ async def chat_completion(request: ChatRequest):
         ChatResponse with AI generated response
     """
     try:
+        logger.info("Received request for /api/chat with data: %s", request.dict())
         client = get_openai_client()
         
         # Prepare messages
@@ -254,6 +262,7 @@ async def chat_completion(request: ChatRequest):
         
         # Extract response
         ai_response = response.choices[0].message.content
+        logger.info("AI response: %s", ai_response)
         
         return ChatResponse(
             response=ai_response,
@@ -266,7 +275,9 @@ async def chat_completion(request: ChatRequest):
         )
         
     except Exception as e:
-        logger.error(f"Error in chat completion: {str(e)}")
+        logger.error("Error in chat completion: %s", str(e))
+        if hasattr(e, 'response') and e.response:
+            logger.error("Response content: %s", e.response.content)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate response: {str(e)}"
@@ -327,6 +338,24 @@ async def simple_completion(request: CompletionRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate response: {str(e)}"
         )
+
+
+# Define the /chat endpoint
+@app.post("/chat", summary="Chat with AI", description="Handle multi-turn conversations with the AI provider.")
+def chat_endpoint(request: ChatRequest):
+    logger.info("/chat endpoint called with messages: %s", request.messages)
+    # Placeholder response for now
+    return {"response": "This is a placeholder response."}
+
+
+# Add detailed logs for startup and shutdown events
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Application is starting up...")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("Application is shutting down...")
 
 
 if __name__ == "__main__":
