@@ -57,7 +57,7 @@ AZURE_OPENAI_MODEL=your-deployment-name
 
 ### 3. Run the Service
 
-**Local Development:**
+**Option A: Local Development (Python)**
 ```bash
 # Install dependencies
 pip install -r requirements.txt
@@ -66,9 +66,21 @@ pip install -r requirements.txt
 python start.py
 ```
 
-**Docker:**
+**Option B: Docker Compose (Recommended)**
+
+*On Linux/Mac:*
 ```bash
 docker compose up -d
+```
+
+*On Windows with WSL:*
+```powershell
+# From PowerShell, run Docker in WSL
+wsl -d Ubuntu -e bash -c "cd /mnt/e/Workspace/cncg/AIAPI && sudo docker-compose up -d"
+
+# Or open WSL terminal and run:
+# cd /mnt/e/Workspace/cncg/AIAPI
+# sudo docker-compose up -d
 ```
 
 ### 4. Access the API
@@ -252,20 +264,101 @@ environment:
 
 ## 🐳 Docker Deployment
 
-### Build and Run
+### Standard Docker (Linux/Mac)
+
+**Build and Run:**
 ```bash
 docker compose up -d
 ```
 
-### View Logs
+**View Logs:**
 ```bash
 docker compose logs -f
 ```
 
-### Stop Service
+**Stop Service:**
 ```bash
 docker compose down
 ```
+
+### Docker in WSL (Windows)
+
+#### Prerequisites
+
+1. **Install Docker in WSL Ubuntu:**
+   ```bash
+   # Open WSL terminal
+   wsl -d Ubuntu
+   
+   # Update packages
+   sudo apt-get update
+   
+   # Install Docker
+   sudo apt-get install -y docker.io docker-compose
+   
+   # Start Docker service
+   sudo service docker start
+   
+   # Enable Docker to start on WSL boot (optional)
+   echo "sudo service docker start" >> ~/.bashrc
+   ```
+
+2. **Verify Installation:**
+   ```bash
+   sudo docker --version
+   sudo docker-compose --version
+   ```
+
+#### Running from PowerShell
+
+Navigate to your project directory in Windows and run commands through WSL:
+
+**Build and Start:**
+```powershell
+wsl -d Ubuntu -e bash -c "cd /mnt/e/Workspace/cncg/AIAPI && sudo docker-compose up --build -d"
+```
+
+**View Logs:**
+```powershell
+wsl -d Ubuntu -e bash -c "cd /mnt/e/Workspace/cncg/AIAPI && sudo docker-compose logs -f"
+```
+
+**Stop Containers:**
+```powershell
+wsl -d Ubuntu -e bash -c "cd /mnt/e/Workspace/cncg/AIAPI && sudo docker-compose down"
+```
+
+**Rebuild After Code Changes:**
+```powershell
+wsl -d Ubuntu -e bash -c "cd /mnt/e/Workspace/cncg/AIAPI && sudo docker-compose down && sudo docker-compose up --build -d"
+```
+
+#### Running from WSL Terminal
+
+Alternatively, open a WSL terminal and run commands directly:
+
+```bash
+# Navigate to project (adjust path to match your setup)
+cd /mnt/e/Workspace/cncg/AIAPI
+
+# Build and start
+sudo docker-compose up --build -d
+
+# View logs
+sudo docker-compose logs -f
+
+# Stop containers
+sudo docker-compose down
+```
+
+#### WSL Path Reference
+
+Windows paths in WSL follow this pattern:
+- `C:\` → `/mnt/c/`
+- `D:\` → `/mnt/d/`
+- `E:\Workspace\cncg\AIAPI` → `/mnt/e/Workspace/cncg/AIAPI`
+
+**Note:** Always use `sudo` with Docker commands in WSL unless you've configured Docker to run without sudo.
 
 ### Manual Docker Build
 ```bash
@@ -352,6 +445,56 @@ API_PORT=8002
 ```env
 # Update CORS_ORIGINS in .env
 CORS_ORIGINS=http://localhost:3000,https://myapp.com
+```
+
+### WSL-Specific Issues
+
+**"docker: command not found" in WSL**
+```bash
+# Install Docker in WSL
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose
+sudo service docker start
+```
+
+**"Cannot connect to Docker daemon"**
+```bash
+# Start Docker service
+sudo service docker start
+
+# Check Docker status
+sudo service docker status
+```
+
+**"Permission denied" errors**
+```bash
+# Always use sudo with Docker commands in WSL
+sudo docker-compose up -d
+
+# Or add user to docker group (requires logout/login)
+sudo usermod -aG docker $USER
+```
+
+**"Port 8001 not accessible from Windows"**
+- Ensure WSL networking is working: `wsl --shutdown` then restart WSL
+- Check Windows Firewall settings
+- Verify port mapping in `docker-compose.yml` is `8001:8000`
+
+**"Changes to .env not reflected in Docker"**
+```bash
+# Rebuild containers to pick up environment changes
+sudo docker-compose down
+sudo docker-compose up --build -d
+```
+
+**"Cannot find project path in WSL"**
+```bash
+# Windows paths map to WSL as:
+# C:\Users\... → /mnt/c/Users/...
+# E:\Workspace\... → /mnt/e/Workspace/...
+
+# Navigate using WSL path format
+cd /mnt/e/Workspace/cncg/AIAPI
 ```
 
 ## 💻 Example Usage
